@@ -1,108 +1,427 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Магазин Овощей и Зелени</title>
-    <!-- Подключаем стили и скрипт Telegram -->
-    <script src="https://telegram.org"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-            margin: 0;
-            padding: 15px;
-        }
-        h1 { text-align: center; color: #2ecc71; font-size: 24px; }
-        .catalog {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .product-card {
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 10px;
-            text-align: center;
-            background: var(--tg-theme-secondary-bg-color, #f9f9f9);
-        }
-        .product-card img { width: 80px; height: 80px; object-fit: cover; }
-        .product-title { font-weight: bold; margin: 8px 0; }
-        .product-price { color: #27ae60; font-weight: bold; margin-bottom: 10px; }
-        .btn {
-            background-color: var(--tg-theme-button-color, #2ecc71);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            padding: 8px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>Витрина</title>
+  <!-- Подключение официального SDK Telegram WebApp -->
+  <script src="https://telegram.org"></script>
+  <style>
+    /* ==========================================
+       CSS СТИЛИ ПАНЕЛИ, КАРТОЧЕК И АНИМАЦИЙ
+       ========================================== */
+    body { font-family: -apple-system, sans-serif; background-color: #f7f7f9; color: #000000; margin: 0; padding: 15px; padding-bottom: 150px; user-select: none; }
+    
+    .header { text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 22px; color: #2481cc; display: flex; align-items: center; justify-content: center; gap: 8px; animation: fadeInUp 0.8s ease-out both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .sprout-emoji { display: inline-block; animation: waveSprout 2.5s ease-in-out infinite; transform-origin: bottom center; }
+    @keyframes waveSprout { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+    
+    .top-panel { position: sticky; top: 0; background: #f7f7f9; padding: 5px 0 12px 0; z-index: 90; margin-bottom: 10px; }
+    .search-input { width: 100%; height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 14px; background: #ffffff; color: #000000; margin-bottom: 8px; outline: none; transition: border-color 0.2s; }
+    .search-input:focus { border-color: #2481cc; }
+    
+    .categories-bar { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+    .categories-bar::-webkit-scrollbar { display: none; }
+    .cat-btn { background: #e5e5ea; color: #3a3a3c; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; min-width: auto; height: auto; box-shadow: none; }
+    .cat-btn.active { background: #2481cc; color: #ffffff; }
+    
+    .clear-btn { background: #ffebeb; color: #ff3b30; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; margin-left: auto; display: none; }
+    .clear-btn:active { background: #fdd2d2; transform: scale(0.95); }
+    
+    #catalog { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .product-card { display: flex; flex-direction: column; justify-content: space-between; background: #ffffff; padding: 14px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); box-sizing: border-box; transition: opacity 0.2s, transform 0.2s; }
+    
+    .product-card.out-of-stock, .product-card.shop-closed { opacity: 0.5; }
+    .product-stock.out { color: #ff3b30; font-weight: bold; }
+    
+    .product-info { margin-bottom: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+    .product-name { font-weight: bold; font-size: 15px; color: #1c1c1e; line-height: 1.3; min-height: 40px; margin-bottom: 6px; }
+    .product-price { color: #2481cc; font-size: 16px; font-weight: bold; }
+    .product-stock { color: #8e8e93; font-size: 12px; margin-top: 2px; font-weight: normal; }
+    .counter { display: flex; align-items: center; justify-content: space-between; background: #f2f2f7; border-radius: 10px; padding: 4px; }
+    .counter button { background: #ffffff; color: #2481cc; border: none; border-radius: 8px; width: 36px; height: 36px; font-weight: bold; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .counter button.minus { background: #ffffff; color: #8e8e93; }
+    .counter button:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+    .count-val { font-weight: bold; font-size: 14px; color: #1c1c1e; flex-grow: 1; text-align: center; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    
+    .closed-alert { width: 100%; background: #ffebeb; color: #ff3b30; text-align: center; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; box-sizing: border-box; border: 1px solid #fdd2d2; }
+
+    .empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; color: #8e8e93; grid-column: span 2; }
+    .empty-icon { font-size: 54px; margin-bottom: 14px; animation: bounce 2s infinite; display: inline-block; }
+    .empty-title { font-size: 18px; font-weight: bold; color: #3a3a3c; margin-bottom: 6px; }
+    .empty-desc { font-size: 14px; line-height: 1.4; max-width: 260px; margin: 0 auto; }
+    @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-4px); } }
+    
+    .footer-form { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; padding: 12px 16px; border-top: 1px solid rgba(0,0,0,0.08); box-sizing: border-box; z-index:100; box-shadow: 0 -6px 20px rgba(0,0,0,0.04); }
+    .footer-form input { width: 100%; height: 42px; box-sizing: border-box; padding: 0 14px; margin-bottom: 10px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 15px; background: #f2f2f7; color: #000000; transition: all 0.2s; -webkit-appearance: none; }
+    .footer-form input:focus { border-color: #2481cc; background: #ffffff; outline: none; }
+    
+    .web-submit-btn { width: 100%; height: 42px; box-sizing: border-box; background: #34c759; color: #ffffff; font-size: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; display: none; text-align: center; box-shadow: 0 4px 14px rgba(52, 199, 89, 0.2); -webkit-tap-highlight-color: transparent; position: relative; transition: all 0.2s; }
+    .web-submit-btn:disabled { background: #aeaeae !important; box-shadow: none !important; color: #ffffff !important; cursor: not-allowed; opacity: 0.8; }
+    .web-submit-btn:not(:disabled):active { background: #28a745; transform: scale(0.99); }
+    
+    .web-submit-btn.loading { color: transparent !important; pointer-events: none; background: #28a745; }
+    .web-submit-btn.loading::after { content: ""; position: absolute; width: 18px; height: 18px; top: 0; left: 0; right: 0; bottom: 0; margin: auto; border: 3px solid transparent; border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    @media (min-width: 480px) { #catalog { grid-template-columns: repeat(3, 1fr); } .empty-state { grid-column: span 3; } }
+    @media (min-width: 768px) { #catalog { grid-template-columns: repeat(4, 1fr); } .empty-state { grid-column: span 4; } }
+  </style>
 </head>
 <body>
 
-    <h1>🥬 Свежие Овощи и Зелень</h1>
-    
-    <div class="catalog">
-        <!-- Карточка 1 -->
-        <div class="product-card">
-            <img src="https://icons8.com" alt="Томаты">
-            <div class="product-title">Томаты Черри</div>
-            <div class="product-price">250 ₽ / кг</div>
-            <button class="btn" onclick="addToCart('Томаты Черри', 250)">В корзину</button>
-        </div>
-        <!-- Карточка 2 -->
-        <div class="product-card">
-            <img src="https://icons8.com" alt="Огурцы">
-            <div class="product-title">Огурцы гладкие</div>
-            <div class="product-price">180 ₽ / кг</div>
-            <button class="btn" onclick="addToCart('Огурцы гладкие', 180)">В корзину</button>
-        </div>
-        <!-- Карточка 3 -->
-        <div class="product-card">
-            <img src="https://icons8.com" alt="Шпинат">
-            <div class="product-title">Шпинат свежий</div>
-            <div class="product-price">120 ₽ / уп</div>
-            <button class="btn" onclick="addToCart('Шпинат свежий', 120)">В корзину</button>
-        </div>
-        <!-- Карточка 4 -->
-        <div class="product-card">
-            <img src="https://icons8.com" alt="Авокадо">
-            <div class="product-title">Авокадо Хасс</div>
-            <div class="product-price">150 ₽ / шт</div>
-            <button class="btn" onclick="addToCart('Авокадо Хасс', 150)">В корзину</button>
-        </div>
+  <!-- ==========================================
+       HTML СТРУКТУРА СТРАНИЦЫ
+       ========================================== -->
+  <div class="header"><span class="sprout-emoji">🌱</span> Свежие овощи и зелень:</div>
+  
+  <div class="top-panel">
+    <input type="text" id="search_input" class="search-input" placeholder="🔍 Поиск товара..." oninput="filterCatalog()">
+    <div class="categories-bar">
+      <button id="cat_all" class="cat-btn active" onclick="changeCategory('all')">Все (<span id="count_all">0</span>)</button>
+      <button id="cat_veggies" class="cat-btn" onclick="changeCategory('veggies')">🍅 Овощи (<span id="count_veggies">0</span>)</button>
+      <button id="cat_greens" class="cat-btn" onclick="changeCategory('greens')">🌿 Зелень (<span id="count_greens">0</span>)</button>
+      <button id="clear_btn" class="clear-btn" onclick="clearCart()">🧹 Сброс</button>
     </div>
+  </div>
+  
+  <div id="catalog">
+    <div id="empty_state" class="empty-state">
+      <span id="empty_icon" class="empty-icon">🚛</span>
+      <div id="empty_title" class="empty-title">Всё разобрали!</div>
+      <div id="empty_desc" class="empty-desc">Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!</div>
+    </div>
+    <!-- Сюда JavaScript автоматически добавит карточки товаров -->
+  </div>
 
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand(); // Разворачиваем приложение на весь экран
+  <div class="footer-form" id="footer_form">
+    <!-- Сюда добавится форма ввода номера телефона или плашка закрытия -->
+  </div>
 
-        let cart = [];
+  <!-- ==========================================
+       JS ЛОГИКА ВЗАИМОДЕЙСТВИЯ (ИНТЕРФЕЙС)
+       ========================================== -->
+  <script>
+    // 1. Инициализация данных, переданных из Google скрипта
+    var shopData = <?!= JSON.stringify(shopData) ?>;
+    
+    var cart = {};
+    var minOrderSum = shopData.minOrderSum; 
+    var currentCategory = "all"; 
+    var totalItemsOnStart = shopData.items.length; 
+    var isShopOpen = shopData.isShopOpen; 
+    
+    var isTelegramWebApp = false;
+    var tg = window.Telegram ? window.Telegram.WebApp : null;
+    if (tg && tg.platform && tg.platform !== "unknown") { isTelegramWebApp = true; }
+    
+    if (isTelegramWebApp && isShopOpen) {
+      tg.expand();
+      tg.MainButton.setParams({
+        text: "ОФОРМИТЬ ЗАКАЗ",
+        color: "#34c759", 
+        text_color: "#ffffff"
+      });
+      tg.MainButton.onClick(submitOrder);
+    }
 
-        function addToCart(name, price) {
-            cart.push({ name, price });
-            updateMainButton();
+    // Слушатель загрузки страницы
+    document.addEventListener("DOMContentLoaded", function() {
+      renderCatalog(); 
+      
+      var input = document.getElementById("user_phone");
+      if (input) {
+        var savedPhone = localStorage.getItem("saved_customer_phone");
+        if (savedPhone) {
+          input.value = savedPhone;
+          maskBelarusPhone(input); 
+        }
+      }
+      checkEmptyState(); 
+      updateOrderButtons();
+    });
+
+    // 2. Генерация витрины товаров
+    function renderCatalog() {
+      var catalog = document.getElementById('catalog');
+      var footer = document.getElementById('footer_form');
+      
+      document.getElementById('count_all').innerText = shopData.counts.all;
+      document.getElementById('count_veggies').innerText = shopData.counts.veggies;
+      document.getElementById('count_greens').innerText = shopData.counts.greens;
+      
+      if (shopData.items.length === 0) {
+        document.getElementById('empty_state').style.display = 'flex';
+      }
+
+      shopData.items.forEach(function(item, idx) {
+        var lowerName = item.name.toLowerCase();
+        var unitLabel = "кг"; 
+        var currentStep = item.step;
+        var maxCount = item.count; 
+
+        if (lowerName.indexOf("лук") !== -1) {
+          unitLabel = "г";
+          currentStep = 100; 
+          maxCount = Math.floor(item.count * 1000); 
+        } else if (item.category === "greens") {
+          unitLabel = "пуч"; 
+          if (lowerName.indexOf("огурец") !== -1 || lowerName.indexOf("огурцы") !== -1) {
+            unitLabel = "кг";
+          }
+        } else {
+          if (lowerName.indexOf("морковь") !== -1 || lowerName.indexOf("редис") !== -1 || lowerName.indexOf("свекла") !== -1 || lowerName.indexOf("свёкла") !== -1) {
+            unitLabel = "пуч";
+          } else if (lowerName.indexOf("чеснок") !== -1) {
+            unitLabel = "шт";
+          }
         }
 
-        function updateMainButton() {
-            if (cart.length > 0) {
-                const total = cart.reduce((sum, item) => sum + item.price, 0);
-                tg.MainButton.text = `Оформить заказ: ${total} ₽`;
-                tg.MainButton.show();
+        var isAvailable = (maxCount > 0);
+        var cardClass = "product-card";
+        if (!isAvailable) cardClass += " out-of-stock";
+        if (!shopData.isShopOpen) cardClass += " shop-closed";
+
+        var ostText = isAvailable ? ((lowerName.indexOf("лук") !== -1) ? item.count + " кг" : item.count + " " + unitLabel) : "Нет в наличии";
+        var stockClass = isAvailable ? "product-stock" : "product-stock out";
+        var priceSubText = (lowerName.indexOf("лук") !== -1) ? " за 100 г" : " за " + unitLabel;
+
+        var disabledAttr = (!isAvailable || !shopData.isShopOpen) ? "disabled" : "";
+
+        var cardHtml = '<div class="' + cardClass + '" data-category="' + item.category + '" data-name="' + lowerName + '">' +
+          '<div class="product-info">' +
+            '<div class="product-name">' + item.name + '</div>' +
+            '<div class="product-price">' + item.price + ' <span style="font-size:12px; font-weight:normal; color:#8e8e93;">BYN' + priceSubText + '</span>' +
+            '<div class="' + stockClass + '">Ост: ' + ostText + '</div></div>' +
+          '</div>' +
+          '<div class="counter">' +
+            '<button class="minus" ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', -' + currentStep + ', \'' + unitLabel + '\')">-</button>' +
+            '<div class="count-val" id="qty_' + idx + '">0</div>' + // Вернули цифру 0
+            '<button ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', ' + currentStep + ', \'' + unitLabel + '\')">+</button>' + // Вернули ПЛЮС
+          '</div></div>';
+
+        catalog.insertAdjacentHTML('beforeend', cardHtml);
+      });
+
+      if (shopData.isShopOpen) {
+        footer.innerHTML = '  <input type="tel" id="user_phone" placeholder="📱 Ваш номер: 29 000-00-00" oninput="maskBelarusPhone(this)" required>' +
+                           '  <button id="web_btn" class="web-submit-btn" onclick="submitOrder()">🛒 ОФОРМИТЬ ЗАКАЗ</button>';
+      } else {
+        var startHourText = shopData.startHour < 9 ? "0" + shopData.startHour : shopData.startHour;
+        footer.innerHTML = '  <div class="closed-alert">🔒 Прием заказов закрыт до ' + startHourText + ':00</div>';
+      }
+    }
+    // 3. Управление маской и кнопками категорий
+    function maskBelarusPhone(input) {
+      var cursor = input.selectionStart;
+      var value = input.value;
+      var oldLen = value.length;
+      if (value.length < 5) {
+        var clean = value.replace(/[^0-9+]/g, "");
+        if (clean === "+" || clean === "+3" || clean === "+37" || clean === "+375") { input.value = ""; }
+        return;
+      }
+      var numbers = value.replace(/\D/g, "");
+      if (numbers.indexOf("80") === 0) { numbers = "375" + numbers.substring(2); }
+      if (numbers.length === 0) { input.value = ""; return; }
+      if (numbers.substring(0, 3) === "375") { numbers = numbers.substring(3); }
+      var formatted = "+375 ";
+      if (numbers.length > 0) { formatted += "(" + numbers.substring(0, 2); }
+      if (numbers.length > 2) { formatted += ") " + numbers.substring(2, 5); }
+      if (numbers.length > 5) { formatted += "-" + numbers.substring(5, 7); }
+      if (numbers.length > 7) { formatted += "-" + numbers.substring(7, 9); }
+      input.value = formatted;
+      var newLen = formatted.length;
+      var delta = newLen - oldLen;
+      var newCursor = cursor + delta;
+      if (newCursor < 0) newCursor = 0;
+      if (newCursor > newLen) newCursor = newLen;
+      input.setSelectionRange(newCursor, newCursor);
+    }
+
+    function changeQty(idx, name, max, change, unit) {
+      if (!isShopOpen) return;
+      if (!cart[name]) { cart[name] = 0; }
+      var next = parseFloat((cart[name] + change).toFixed(3)); 
+      if (next < 0) next = 0;
+      if (next > max) { 
+        alert("Извините, осталось только " + max + " " + unit + " товара!"); return; 
+      }
+      cart[name] = next;
+      var displayVal = next === 0 ? "0" : next + " " + unit;
+      document.getElementById("qty_" + idx).innerText = displayVal;
+      updateOrderButtons();
+    }
+
+    function clearCart() {
+      cart = {};
+      var vals = document.getElementsByClassName("count-val");
+      for (var i = 0; i < vals.length; i++) { vals[i].innerText = "0"; }
+      updateOrderButtons();
+    }
+    function changeCategory(catId) {
+      currentCategory = catId;
+      var buttons = document.getElementsByClassName("cat-btn");
+      for (var i=0; i<buttons.length; i++) { buttons[i].classList.remove("active"); }
+      document.getElementById("cat_" + catId).classList.add("active");
+      filterCatalog(); 
+    }
+
+    function filterCatalog() {
+      var searchText = document.getElementById("search_input").value.toLowerCase().trim();
+      var cards = document.getElementsByClassName("product-card");
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var cardName = card.getAttribute("data-name");
+        var cardCategory = card.getAttribute("data-category");
+        if (cardName && cardCategory) {
+          var matchSearch = cardName.indexOf(searchText) !== -1;
+          var matchCategory = (currentCategory === "all") || (cardCategory === currentCategory);
+          if (matchSearch && matchCategory) { card.style.display = "flex"; } else { card.style.display = "none"; }
+        }
+      }
+      checkEmptyState(); 
+    }
+
+    function checkEmptyState() {
+      var cards = document.getElementsByClassName("product-card");
+      var visibleCount = 0;
+      for (var i = 0; i < cards.length; i++) {
+        if (cards[i].style.display !== "none") visibleCount++;
+      }
+      var emptyBlock = document.getElementById("empty_state");
+      if (visibleCount === 0) {
+        emptyBlock.style.display = "flex";
+        var searchVal = document.getElementById("search_input").value.trim();
+        if (totalItemsOnStart > 0 && searchVal !== "") {
+          document.getElementById("empty_icon").innerText = "🔍";
+          document.getElementById("empty_title").innerText = "Ничего не найдено";
+          document.getElementById("empty_desc").innerText = "Попробуйте изменить запрос или проверить раскладку клавиатуры.";
+        } else {
+          document.getElementById("empty_icon").innerText = "🚛";
+          document.getElementById("empty_title").innerText = "Всё разобрали!";
+          document.getElementById("empty_desc").innerText = "Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!";
+        }
+      } else {
+        emptyBlock.style.display = "none";
+      }
+    }
+    // 4. Логика подсчета стоимости корзины
+    function updateOrderButtons() {
+      if (!isShopOpen) return;
+      var totalSum = 0;
+      var hasItems = false;
+      var itemsData = shopData.items;
+      for (var name in cart) {
+        if (cart[name] > 0) {
+          hasItems = true;
+          var found = itemsData.find(function(item) { return item.name === name; });
+          if (found) {
+            if (name.toLowerCase().indexOf("лук") !== -1) {
+              totalSum += (cart[name] / 100) * parseFloat(found.price);
             } else {
-                tg.MainButton.hide();
+              totalSum += cart[name] * parseFloat(found.price);
             }
+          }
         }
+      }
+      
+      var webBtn = document.getElementById("web_btn");
+      var clearBtn = document.getElementById("clear_btn");
+      
+      if (hasItems) {
+        clearBtn.style.display = "block"; 
+        if (totalSum < minOrderSum) {
+          var diff = (minOrderSum - totalSum).toFixed(2);
+          if (isTelegramWebApp) {
+            tg.MainButton.setParams({ text: "⚠️ Добавьте ещё на " + diff + " BYN", color: "#aeaeae" });
+            tg.MainButton.show();
+          } else {
+            if (webBtn) {
+              webBtn.style.display = "block";
+              webBtn.disabled = true;
+              webBtn.innerText = "⚠️ Добавьте ещё на " + diff + " BYN";
+            }
+          }
+        } else {
+          if (isTelegramWebApp) {
+            tg.MainButton.setParams({ text: "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN", color: "#34c759" });
+            tg.MainButton.show();
+          } else {
+            if (webBtn) {
+              webBtn.style.display = "block";
+              webBtn.disabled = false;
+              webBtn.innerText = "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN";
+            }
+          }
+        }
+      } else {
+        clearBtn.style.display = "none"; 
+        if (isTelegramWebApp) { tg.MainButton.hide(); }
+        else { if (webBtn) webBtn.style.display = "none"; }
+      }
+      
+      if (!isTelegramWebApp && hasItems) { document.body.style.paddingBottom = "150px"; }
+      else if (!isTelegramWebApp) { document.body.style.paddingBottom = "100px"; }
+    } 
+  
+    // 5. Отправка сформированного заказа
+    function submitOrder() {
+      if (!isShopOpen) { alert("Магазин сейчас закрыт!"); return; }
+      var hasItems = false; var totalSum = 0; var cartData = [];
+      var itemsData = shopData.items;
+      for (var key in cart) { 
+        if (cart[key] > 0) { 
+          hasItems = true; 
+          var exportQty = (key.toLowerCase().indexOf("лук") !== -1) ? (cart[key] / 1000) : cart[key];
+          cartData.push(key + ":" + exportQty); 
+          var found = itemsData.find(function(i){ return i.name === key; });
+          if (found) {
+            if (key.toLowerCase().indexOf("лук") !== -1) {
+              totalSum += (cart[key] / 100) * parseFloat(found.price);
+            } else {
+              totalSum += cart[key] * parseFloat(found.price);
+            }
+          }
+        } 
+      }
+      
+      if (!hasItems) { alert("Корзина пуста!"); return; }
+      if (totalSum < minOrderSum) { alert("Минимальная сумма заказа — " + minOrderSum + " BYN"); return; }
+      
+      var phone = document.getElementById("user_phone").value.trim();
+      if (!phone) { alert("Пожалуйста, введите телефон!"); return; }
 
-        // Обработка нажатия на главную кнопку Telegram
-        tg.onEvent('mainButtonClicked', function() {
-            // Отправляем данные о заказе обратно боту
-            tg.sendData(JSON.stringify(cart));
-        });
-    </script>
+      var cleanPhone = phone.replace(/\D/g, "");
+      var phonePattern = /^(375|80)(25|29|33|44|17)\d{7}$/;
+      if (!phonePattern.test(cleanPhone)) {
+        alert("Неверный формат телефона!\nНомер должен содержать код страны и 9 цифр.");
+        return;
+      }
+      
+      try { localStorage.setItem("saved_customer_phone", phone); } catch(e) {}
+      
+      if (isTelegramWebApp) { tg.MainButton.showProgress(); } 
+      else { document.getElementById("web_btn").classList.add("loading"); }
+      
+      var tgId = "";
+      var tgName = "";
+      
+      // Считываем данные пользователя, если открыто внутри Telegram WebApp
+      if (isTelegramWebApp && tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        tgId = tg.initDataUnsafe.user.id || "";
+        tgName = tg.initDataUnsafe.user.first_name || "";
+      }
+      
+      var redirectUrl = shopData.webAppUrl + "?action=order" +
+                        "&phone=" + encodeURIComponent(cleanPhone) + 
+                        "&cart=" + encodeURIComponent(cartData.join(",")) +
+                        "&tg_id=" + encodeURIComponent(tgId) +
+                        "&name=" + encodeURIComponent(tgName);
+                        
+      window.location.href = redirectUrl;
+    }
+
+  </script>
 </body>
 </html>
