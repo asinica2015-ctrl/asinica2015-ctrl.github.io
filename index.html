@@ -1,427 +1,772 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Витрина</title>
-  <!-- Подключение официального SDK Telegram WebApp -->
-  <script src="https://telegram.org"></script>
-  <style>
-    /* ==========================================
-       CSS СТИЛИ ПАНЕЛИ, КАРТОЧЕК И АНИМАЦИЙ
-       ========================================== */
-    body { font-family: -apple-system, sans-serif; background-color: #f7f7f9; color: #000000; margin: 0; padding: 15px; padding-bottom: 150px; user-select: none; }
-    
-    .header { text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 22px; color: #2481cc; display: flex; align-items: center; justify-content: center; gap: 8px; animation: fadeInUp 0.8s ease-out both; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .sprout-emoji { display: inline-block; animation: waveSprout 2.5s ease-in-out infinite; transform-origin: bottom center; }
-    @keyframes waveSprout { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
-    
-    .top-panel { position: sticky; top: 0; background: #f7f7f9; padding: 5px 0 12px 0; z-index: 90; margin-bottom: 10px; }
-    .search-input { width: 100%; height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 14px; background: #ffffff; color: #000000; margin-bottom: 8px; outline: none; transition: border-color 0.2s; }
-    .search-input:focus { border-color: #2481cc; }
-    
-    .categories-bar { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }
-    .categories-bar::-webkit-scrollbar { display: none; }
-    .cat-btn { background: #e5e5ea; color: #3a3a3c; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; min-width: auto; height: auto; box-shadow: none; }
-    .cat-btn.active { background: #2481cc; color: #ffffff; }
-    
-    .clear-btn { background: #ffebeb; color: #ff3b30; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; margin-left: auto; display: none; }
-    .clear-btn:active { background: #fdd2d2; transform: scale(0.95); }
-    
-    #catalog { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .product-card { display: flex; flex-direction: column; justify-content: space-between; background: #ffffff; padding: 14px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); box-sizing: border-box; transition: opacity 0.2s, transform 0.2s; }
-    
-    .product-card.out-of-stock, .product-card.shop-closed { opacity: 0.5; }
-    .product-stock.out { color: #ff3b30; font-weight: bold; }
-    
-    .product-info { margin-bottom: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
-    .product-name { font-weight: bold; font-size: 15px; color: #1c1c1e; line-height: 1.3; min-height: 40px; margin-bottom: 6px; }
-    .product-price { color: #2481cc; font-size: 16px; font-weight: bold; }
-    .product-stock { color: #8e8e93; font-size: 12px; margin-top: 2px; font-weight: normal; }
-    .counter { display: flex; align-items: center; justify-content: space-between; background: #f2f2f7; border-radius: 10px; padding: 4px; }
-    .counter button { background: #ffffff; color: #2481cc; border: none; border-radius: 8px; width: 36px; height: 36px; font-weight: bold; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .counter button.minus { background: #ffffff; color: #8e8e93; }
-    .counter button:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
-    .count-val { font-weight: bold; font-size: 14px; color: #1c1c1e; flex-grow: 1; text-align: center; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    
-    .closed-alert { width: 100%; background: #ffebeb; color: #ff3b30; text-align: center; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; box-sizing: border-box; border: 1px solid #fdd2d2; }
+// ==========================================
+// 1. НАСТРОЙКИ СВЯЗИ И ТОКЕНА
+// ==========================================
+var TELEGRAM_TOKEN = "8868832993:AAEpzLcRj25ZXJ7XLA99a9dWJnRFBRKjBbs";
+var CHANNEL_CHAT_ID = "-1003977315684"; 
+var POST_MESSAGE_ID = 2; // ID существующего поста для редактирования
+var YOUR_PERSONAL_CHAT_ID = 8332653180; //ВАШ ЛИЧНЫЙ ID
+// Прямой монолитный адрес вашего Web App интернет-магазина
+function getWebAppUrl() {
+  return "https://script.google.com/macros/s/AKfycbwvbk4gf9_3kHTRS6SAcUysbfIES9dRSOrn3irJDfy6vL4muRyyBankxb44gM1sO-A8/exec";
+}
+// Прямая сборка базового URL (защита от скрытых перехватчиков проекта)
+function getSafeTelegramUrl(method) {
+  var codes = [104,116,116,112,115,58,47,47,97,112,105,46,116,101,108,101,103,114,97,109,46,111,114,103,47];
+  var safeBaseUrl = codes.map(function(c) { return String.fromCharCode(c); }).join('');
+  return safeBaseUrl + "bot" + TELEGRAM_TOKEN + "/" + method;
+}
+// ==========================================
+// 2. ГЕНЕРАЦИЯ ИНТЕРНЕТ-МАГАЗИНА (Web App HTML)
+// ==========================================
+function doGet(e) {
+  if (e && e.parameter && e.parameter.action === "order") {
+    return handleWebOrder(e.parameter);
+  }
+  var MIN_ORDER_SUM = 15;  // 💰 НАСТРОЙКА МИНИМАЛЬНОЙ СУММЫ ЗАКАЗА (в рублях)
+  // 🔒 НАСТРОЙКА ВРЕМЕНИ РАБОТЫ МАГАЗИНА (по Минскому времени)
+  var START_HOUR = 7;  // Час открытия (07:00)
+  var END_HOUR = 21;   // Час закрытия (21:00)
+  // Проверяем текущее время на сервере Google (переводим в Минск/Минское время)
+  var now = new Date(Utilities.formatDate(new Date(), "GMT+3", "yyyy/MM/dd HH:mm:ss"));
+  var currentHour = now.getHours();
+  var isShopOpen = (currentHour >= START_HOUR && currentHour < END_HOUR);
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var sheet = sheets[0]; 
+  var lastRow = sheet.getLastRow();
+  var items = [];
+  var countAll = 0;
+  var countVeggies = 0;
+  var countGreens = 0;
+  if (lastRow >= 2) {
+    var values = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+    for (var i = 0; i < values.length; i++) {
+      var name = values[i][0] ? values[i][0].toString().trim() : "";
+      var countText = values[i][1] !== "" ? values[i][1].toString().trim() : "0";
+      var price = values[i][2] !== "" ? values[i][2].toString().trim() : "0";
+      
+      var step = values[i][3] !== undefined && values[i][3] !== "" ? parseFloat(values[i][3].toString().replace(',', '.')) : 1;
+      if (isNaN(step) || step <= 0) step = 1;
+      
+      var safeName = name.replace(/"/g, '').replace(/'/g, "");
+      var parsedCount = parseFloat(countText.replace(',', '.')) || 0;
 
-    .empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; color: #8e8e93; grid-column: span 2; }
-    .empty-icon { font-size: 54px; margin-bottom: 14px; animation: bounce 2s infinite; display: inline-block; }
-    .empty-title { font-size: 18px; font-weight: bold; color: #3a3a3c; margin-bottom: 6px; }
-    .empty-desc { font-size: 14px; line-height: 1.4; max-width: 260px; margin: 0 auto; }
-    @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-4px); } }
-    
-    .footer-form { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; padding: 12px 16px; border-top: 1px solid rgba(0,0,0,0.08); box-sizing: border-box; z-index:100; box-shadow: 0 -6px 20px rgba(0,0,0,0.04); }
-    .footer-form input { width: 100%; height: 42px; box-sizing: border-box; padding: 0 14px; margin-bottom: 10px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 15px; background: #f2f2f7; color: #000000; transition: all 0.2s; -webkit-appearance: none; }
-    .footer-form input:focus { border-color: #2481cc; background: #ffffff; outline: none; }
-    
-    .web-submit-btn { width: 100%; height: 42px; box-sizing: border-box; background: #34c759; color: #ffffff; font-size: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; display: none; text-align: center; box-shadow: 0 4px 14px rgba(52, 199, 89, 0.2); -webkit-tap-highlight-color: transparent; position: relative; transition: all 0.2s; }
-    .web-submit-btn:disabled { background: #aeaeae !important; box-shadow: none !important; color: #ffffff !important; cursor: not-allowed; opacity: 0.8; }
-    .web-submit-btn:not(:disabled):active { background: #28a745; transform: scale(0.99); }
-    
-    .web-submit-btn.loading { color: transparent !important; pointer-events: none; background: #28a745; }
-    .web-submit-btn.loading::after { content: ""; position: absolute; width: 18px; height: 18px; top: 0; left: 0; right: 0; bottom: 0; margin: auto; border: 3px solid transparent; border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    
-    @media (min-width: 480px) { #catalog { grid-template-columns: repeat(3, 1fr); } .empty-state { grid-column: span 3; } }
-    @media (min-width: 768px) { #catalog { grid-template-columns: repeat(4, 1fr); } .empty-state { grid-column: span 4; } }
-  </style>
-</head>
-<body>
+      if (safeName) {
+        var category = "veggies"; 
+        var lowerName = safeName.toLowerCase();
 
-  <!-- ==========================================
-       HTML СТРУКТУРА СТРАНИЦЫ
-       ========================================== -->
-  <div class="header"><span class="sprout-emoji">🌱</span> Свежие овощи и зелень:</div>
+        if (lowerName.match(/(укроп|петрушка|лук|кинза|базилик|салат|шпинат|руккола|щавель|розмарин|размарин|тимьян|мелисса|майоран|майран|мята)/)) {
+          category = "greens"; 
+   
+        }
+
+        countAll++;
+        if (category === "veggies") {
+          countVeggies++;
+        } else {
+          countGreens++;
+        }
+
+        items.push({ name: safeName, count: parsedCount, price: price, step: step, category: category });
+      }
+    }
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Витрина</title>';
   
-  <div class="top-panel">
-    <input type="text" id="search_input" class="search-input" placeholder="🔍 Поиск товара..." oninput="filterCatalog()">
-    <div class="categories-bar">
-      <button id="cat_all" class="cat-btn active" onclick="changeCategory('all')">Все (<span id="count_all">0</span>)</button>
-      <button id="cat_veggies" class="cat-btn" onclick="changeCategory('veggies')">🍅 Овощи (<span id="count_veggies">0</span>)</button>
-      <button id="cat_greens" class="cat-btn" onclick="changeCategory('greens')">🌿 Зелень (<span id="count_greens">0</span>)</button>
-      <button id="clear_btn" class="clear-btn" onclick="clearCart()">🧹 Сброс</button>
-    </div>
-  </div>
+  html += '<script src="https://telegram.org"></script>';
   
-  <div id="catalog">
-    <div id="empty_state" class="empty-state">
-      <span id="empty_icon" class="empty-icon">🚛</span>
-      <div id="empty_title" class="empty-title">Всё разобрали!</div>
-      <div id="empty_desc" class="empty-desc">Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!</div>
-    </div>
-    <!-- Сюда JavaScript автоматически добавит карточки товаров -->
-  </div>
+  html += '<style>';
+  html += 'body { font-family: -apple-system, sans-serif; background-color: #f7f7f9; color: #000000; margin: 0; padding: 15px; padding-bottom: 150px; user-select: none; }';
+  
+  html += '.header { text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 22px; color: #2481cc; display: flex; align-items: center; justify-content: center; gap: 8px; animation: fadeInUp 0.8s ease-out both; }';
+  html += '@keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }';
+  html += '.sprout-emoji { display: inline-block; animation: waveSprout 2.5s ease-in-out infinite; transform-origin: bottom center; }';
+  html += '@keyframes waveSprout { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }';
+  
+  html += '.top-panel { position: sticky; top: 0; background: #f7f7f9; padding: 5px 0 12px 0; z-index: 90; margin-bottom: 10px; }';
+  html += '.search-input { width: 100%; height: 38px; box-sizing: border-box; padding: 0 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 14px; background: #ffffff; color: #000000; margin-bottom: 8px; outline: none; transition: border-color 0.2s; }';
+  html += '.search-input:focus { border-color: #2481cc; }';
+  
+  html += '.categories-bar { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; align-items: center; }';
+  html += '.categories-bar::-webkit-scrollbar { display: none; }';
+  html += '.cat-btn { background: #e5e5ea; color: #3a3a3c; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; min-width: auto; height: auto; box-shadow: none; }';
+  html += '.cat-btn.active { background: #2481cc; color: #ffffff; }';
+  
+  html += '.clear-btn { background: #ffebeb; color: #ff3b30; border: none; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: all 0.2s; margin-left: auto; display: none; }';
+  html += '.clear-btn:active { background: #fdd2d2; transform: scale(0.95); }';
+  
+  html += '#catalog { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }';
+  html += '.product-card { display: flex; flex-direction: column; justify-content: space-between; background: #ffffff; padding: 14px; border-radius: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); box-sizing: border-box; transition: opacity 0.2s, transform 0.2s; }';
+  
+  // Стили для закрытого магазина или отсутствия товара
+  html += '.product-card.out-of-stock, .product-card.shop-closed { opacity: 0.5; }';
+  html += '.product-stock.out { color: #ff3b30; font-weight: bold; }';
+  
+  html += '.product-info { margin-bottom: 12px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }';
+  html += '.product-name { font-weight: bold; font-size: 15px; color: #1c1c1e; line-height: 1.3; min-height: 40px; margin-bottom: 6px; }';
+  html += '.product-price { color: #2481cc; font-size: 16px; font-weight: bold; }';
+  html += '.product-stock { color: #8e8e93; font-size: 12px; margin-top: 2px; font-weight: normal; }';
+  html += '.counter { display: flex; align-items: center; justify-content: space-between; background: #f2f2f7; border-radius: 10px; padding: 4px; }';
+  html += '.counter button { background: #ffffff; color: #2481cc; border: none; border-radius: 8px; width: 36px; height: 36px; font-weight: bold; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }';
+  html += '.counter button.minus { background: #ffffff; color: #8e8e93; }';
+  html += '.counter button:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }';
+  html += '.count-val { font-weight: bold; font-size: 14px; color: #1c1c1e; flex-grow: 1; text-align: center; padding: 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }';
+  
+  // Стили плашки закрытого магазина в подвале
+  html += '.closed-alert { width: 100%; background: #ffebeb; color: #ff3b30; text-align: center; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; box-sizing: border-box; border: 1px solid #fdd2d2; }';
+  
+  html += '.empty-state { display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; color: #8e8e93; grid-column: span 4; }';
+  html += '.empty-icon { font-size: 54px; margin-bottom: 14px; animation: bounce 2s infinite; display: inline-block; }';
+  html += '.empty-title { font-size: 18px; font-weight: bold; color: #3a3a3c; margin-bottom: 6px; }';
+  html += '.empty-desc { font-size: 14px; line-height: 1.4; max-width: 260px; margin: 0 auto; }';
+  html += '@keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-4px); } }';
+  
+  html += '.footer-form { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; padding: 12px 16px; border-top: 1px solid rgba(0,0,0,0.08); box-sizing: border-box; z-index:100; box-shadow: 0 -6px 20px rgba(0,0,0,0.04); }';
+  html += '.footer-form input { width: 100%; height: 42px; box-sizing: border-box; padding: 0 14px; margin-bottom: 10px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 15px; background: #f2f2f7; color: #000000; transition: all 0.2s; -webkit-appearance: none; }';
+  html += '.footer-form input:focus { border-color: #2481cc; background: #ffffff; outline: none; }';
+  
+  html += '.web-submit-btn { width: 100%; height: 42px; box-sizing: border-box; background: #34c759; color: #ffffff; font-size: 15px; border-radius: 10px; font-weight: bold; border: none; cursor: pointer; display: none; text-align: center; box-shadow: 0 4px 14px rgba(52, 199, 89, 0.2); -webkit-tap-highlight-color: transparent; position: relative; transition: all 0.2s; }';
+  html += '.web-submit-btn:disabled { background: #aeaeae !important; box-shadow: none !important; color: #ffffff !important; cursor: not-allowed; opacity: 0.8; }';
+  html += '.web-submit-btn:not(:disabled):active { background: #28a745; transform: scale(0.99); }';
+  
+  html += '.web-submit-btn.loading { color: transparent !important; pointer-events: none; background: #28a745; }';
+  html += '.web-submit-btn.loading::after { content: ""; position: absolute; width: 18px; height: 18px; top: 0; left: 0; right: 0; bottom: 0; margin: auto; border: 3px solid transparent; border-top-color: #ffffff; border-radius: 50%; animation: spin 0.8s linear infinite; }';
+  html += '@keyframes spin { to { transform: rotate(360deg); } }';
+  
+  html += '@media (min-width: 480px) { #catalog { grid-template-columns: repeat(3, 1fr); } }';
+  html += '@media (min-width: 768px) { #catalog { grid-template-columns: repeat(4, 1fr); } }';
+  html += '</style></head><body>';
 
-  <div class="footer-form" id="footer_form">
-    <!-- Сюда добавится форма ввода номера телефона или плашка закрытия -->
-  </div>
+  
+  html += '<div class="header"><span class="sprout-emoji">🌱</span> Свежие овощи и зелень:</div>';
+  
+  html += '<div class="top-panel">';
+  html += '  <input type="text" id="search_input" class="search-input" placeholder="🔍 Поиск товара..." oninput="filterCatalog()">';
+  html += '  <div class="categories-bar">';
+  html += '    <button id="cat_all" class="cat-btn active" onclick="changeCategory(\'all\')">Все (' + countAll + ')</button>';
+  html += '    <button id="cat_veggies" class="cat-btn" onclick="changeCategory(\'veggies\')">🍅 Овощи (' + countVeggies + ')</button>';
+  html += '    <button id="cat_greens" class="cat-btn" onclick="changeCategory(\'greens\')">🌿 Зелень (' + countGreens + ')</button>';
+  html += '    <button id="clear_btn" class="clear-btn" onclick="clearCart()">🧹 Сброс</button>';
+  html += '  </div>';
+  html += '</div>';
+  
+  html += '<div id="catalog">';
+  
+  html += '  <div id="empty_state" class="empty-state">';
+  html += '    <span id="empty_icon" class="empty-icon">🚛</span>';
+  html += '    <div id="empty_title" class="empty-title">Всё разобрали!</div>';
+  html += '    <div id="empty_desc" class="empty-desc">Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!</div>';
+  html += '  </div>';
 
-  <!-- ==========================================
-       JS ЛОГИКА ВЗАИМОДЕЙСТВИЯ (ИНТЕРФЕЙС)
-       ========================================== -->
-  <script>
-    // 1. Инициализация данных, переданных из Google скрипта
-    var shopData = <?!= JSON.stringify(shopData) ?>;
-    
-    var cart = {};
-    var minOrderSum = shopData.minOrderSum; 
-    var currentCategory = "all"; 
-    var totalItemsOnStart = shopData.items.length; 
-    var isShopOpen = shopData.isShopOpen; 
-    
-    var isTelegramWebApp = false;
-    var tg = window.Telegram ? window.Telegram.WebApp : null;
-    if (tg && tg.platform && tg.platform !== "unknown") { isTelegramWebApp = true; }
-    
-    if (isTelegramWebApp && isShopOpen) {
-      tg.expand();
-      tg.MainButton.setParams({
-        text: "ОФОРМИТЬ ЗАКАЗ",
-        color: "#34c759", 
-        text_color: "#ffffff"
-      });
-      tg.MainButton.onClick(submitOrder);
+  items.forEach(function(item, idx) {
+    var lowerName = item.name.toLowerCase();
+    var unitLabel = "кг"; 
+    var currentStep = item.step;
+    var maxCount = item.count; 
+
+    // Настройка для ЛУКА: шаг 100 грамм, лимит в граммах (кг из таблицы * 1000)
+    if (lowerName.indexOf("лук") !== -1) {
+      unitLabel = "г";
+      currentStep = 100; // Шаг сразу в граммах
+      maxCount = Math.floor(item.count * 1000); // Переводим остаток из кг в чистые граммы
+    } else if (item.category === "greens") {
+      unitLabel = "пуч"; 
+      if (lowerName.indexOf("огурец") !== -1 || lowerName.indexOf("огурцы") !== -1) {
+        unitLabel = "кг";
+      }
+    } else {
+      if (lowerName.indexOf("морковь") !== -1 || lowerName.indexOf("редис") !== -1 || lowerName.indexOf("свекла") !== -1 || lowerName.indexOf("свёкла") !== -1) {
+        unitLabel = "пуч";
+      } else if (lowerName.indexOf("чеснок") !== -1) {
+        unitLabel = "шт";
+      }
     }
 
-    // Слушатель загрузки страницы
-    document.addEventListener("DOMContentLoaded", function() {
-      renderCatalog(); 
-      
-      var input = document.getElementById("user_phone");
-      if (input) {
-        var savedPhone = localStorage.getItem("saved_customer_phone");
-        if (savedPhone) {
-          input.value = savedPhone;
-          maskBelarusPhone(input); 
-        }
+    var isAvailable = (maxCount > 0);
+    var cardClass = "product-card";
+    if (!isAvailable) cardClass += " out-of-stock";
+    if (!isShopOpen) cardClass += " shop-closed";
+
+    var ostText = "Нет в наличии";
+    if (isAvailable) {
+      ostText = (lowerName.indexOf("лук") !== -1) ? item.count + " кг" : item.count + " " + unitLabel;
+    }
+    var stockClass = isAvailable ? "product-stock" : "product-stock out";
+    var priceSubText = (lowerName.indexOf("лук") !== -1) ? " за 100 г" : " з " + unitLabel;
+
+    html += '<div class="' + cardClass + '" data-category="' + item.category + '" data-name="' + lowerName + '">';
+    html += '<div class="product-info">';
+    html += '<div class="product-name">' + item.name + '</div>';
+    html += '<div class="product-price">' + item.price + ' <span style="font-size:12px; font-weight:normal; color:#8e8e93;">BYN' + priceSubText + '</span>';
+    html += '<div class="' + stockClass + '">Ост: ' + ostText + '</div></div>';
+    html += '</div>';
+    html += '<div class="counter">';
+    
+    var disabledAttr = (!isAvailable || !isShopOpen) ? "disabled" : "";
+    html += '<button class="minus" ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', -' + currentStep + ', \'' + unitLabel + '\')">-</button>';
+    html += '<div class="count-val" id="qty_' + idx + '">0</div>';
+    html += '<button ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', ' + currentStep + ', \'' + unitLabel + '\')">+</button>';
+    html += '</div></div>';
+  });
+
+  
+  html += '</div>';
+  html += '<div class="footer-form">';
+  
+  if (isShopOpen) {
+    // Если открыт — стандартные поля ввода и кнопка заказа
+    html += '  <input type="tel" id="user_phone" placeholder="📱 Ваш номер: 29 000-00-00" oninput="maskBelarusPhone(this)" required>';
+    html += '  <button id="web_btn" class="web-submit-btn" onclick="submitOrder()">🛒 ОФОРМИТЬ ЗАКАЗ</button>';
+  } else {
+    // Если закрыт — выводим только текстовое сообщение
+    var closingText = "Прием заказов закрыт до " + (START_HOUR < 9 ? "0" + START_HOUR : START_HOUR) + ":00";
+    html += '  <div class="closed-alert">🔒 ' + closingText + '</div>';
+  }
+  
+  html += '</div>';
+  
+  html += '<script>';
+  html += 'var cart = {};';
+  html += 'var minOrderSum = ' + MIN_ORDER_SUM + ';'; 
+  html += 'var currentCategory = "all";'; 
+  html += 'var totalItemsOnStart = ' + items.length + ';'; 
+  html += 'var isShopOpen = ' + isShopOpen + ';'; // Передаем состояние времени работы в браузер
+  
+  html += 'var isTelegramWebApp = false;';
+  html += 'var tg = window.Telegram ? window.Telegram.WebApp : null;';
+  html += 'if (tg && tg.platform && tg.platform !== "unknown") { isTelegramWebApp = true; }';
+  
+  // Инициализация кнопки Telegram происходит ТОЛЬКО если магазин открыт
+  html += 'if (isTelegramWebApp && isShopOpen) {';
+  html += '  tg.expand();';
+  html += '  tg.MainButton.setParams({';
+  html += '    text: "ОФОРМИТЬ ЗАКАЗ",';
+  html += '    color: "#34c759",'; 
+  html += '    text_color: "#ffffff"';
+  html += '  });';
+  html += '  tg.MainButton.onClick(submitOrder);';
+  html += '}';
+  
+  html += 'document.addEventListener("DOMContentLoaded", function() {';
+  html += '  var input = document.getElementById("user_phone");';
+  html += '  if (input) {';
+  html += '    var savedPhone = localStorage.getItem("saved_customer_phone");';
+  html += '    if (savedPhone) {';
+  html += '      input.value = savedPhone;';
+  html += '      maskBelarusPhone(input);'; 
+  html += '    }';
+  html += '  }';
+  html += '  checkEmptyState();'; 
+  html += '  updateOrderButtons();';
+  html += '});';
+  
+  html += 'function maskBelarusPhone(input) {';
+  html += '  var cursor = input.selectionStart;';
+  html += '  var value = input.value;';
+  html += '  var oldLen = value.length;';
+  html += '  if (value.length < 5) {';
+  html += '    var clean = value.replace(/[^0-9+]/g, "");';
+  html += '    if (clean === "+" || clean === "+3" || clean === "+37" || clean === "+375") { input.value = ""; }';
+  html += '    return;';
+  html += '  }';
+  html += '  var numbers = value.replace(/\\D/g, "");';
+  html += '  if (numbers.indexOf("80") === 0) { numbers = "375" + numbers.substring(2); }';
+  html += '  if (numbers.length === 0) { input.value = ""; return; }';
+  html += '  if (numbers.substring(0, 3) === "375") { numbers = numbers.substring(3); }';
+  html += '  var formatted = "+375 ";';
+  html += '  if (numbers.length > 0) { formatted += "(" + numbers.substring(0, 2); }';
+  html += '  if (numbers.length > 2) { formatted += ") " + numbers.substring(2, 5); }';
+  html += '  if (numbers.length > 5) { formatted += "-" + numbers.substring(5, 7); }';
+  html += '  if (numbers.length > 7) { formatted += "-" + numbers.substring(7, 9); }';
+  html += '  input.value = formatted;';
+  html += '  var newLen = formatted.length;';
+  html += '  var delta = newLen - oldLen;';
+  html += '  var newCursor = cursor + delta;';
+  html += '  if (newCursor < 0) newCursor = 0;';
+  html += '  if (newCursor > newLen) newCursor = newLen;';
+  html += '  input.setSelectionRange(newCursor, newCursor);';
+  html += '};';
+  
+  html += 'function changeQty(idx, name, max, change, unit) {';
+  html += '  if (!isShopOpen) return;';
+  html += '  if (!cart[name]) { cart[name] = 0; }';
+  html += '  var next = parseFloat((cart[name] + change).toFixed(3));'; 
+  html += '  if (next < 0) next = 0;';
+  html += '  if (next > max) { ';
+  html += '    alert("Извините, осталось только " + max + " " + unit + " товара!"); return; ';
+  html += '  }';
+  html += '  cart[name] = next;';
+  html += '  var displayVal = next === 0 ? "0" : next + " " + unit;';
+  html += '  document.getElementById("qty_" + idx).innerText = displayVal;';
+  html += '  updateOrderButtons();';
+  html += '};';
+  
+  html += 'function clearCart() {';
+  html += '  cart = {};';
+  html += '  var vals = document.getElementsByClassName("count-val");';
+  html += '  for (var i = 0; i < vals.length; i++) { vals[i].innerText = "0"; }';
+  html += '  updateOrderButtons();';
+  html += '};';
+  
+  html += 'function changeCategory(catId) {';
+  html += '  currentCategory = catId;';
+  html += '  var buttons = document.getElementsByClassName("cat-btn");';
+  html += '  for (var i=0; i<buttons.length; i++) { buttons[i].classList.remove("active"); }';
+  html += '  document.getElementById("cat_" + catId).classList.add("active");';
+  html += '  filterCatalog();'; 
+  html += '};';
+  
+  html += 'function filterCatalog() {';
+  html += '  var searchText = document.getElementById("search_input").value.toLowerCase().trim();';
+  html += '  var cards = document.getElementsByClassName("product-card");';
+  html += '  for (var i = 0; i < cards.length; i++) {';
+  html += '    var card = cards[i];';
+  html += '    var cardName = card.getAttribute("data-name");';
+  html += '    var cardCategory = card.getAttribute("data-category");';
+  html += '    if (cardName && cardCategory) {';
+  html += '      var matchSearch = cardName.indexOf(searchText) !== -1;';
+  html += '      var matchCategory = (currentCategory === "all") || (cardCategory === currentCategory);';
+  html += '      if (matchSearch && matchCategory) { card.style.display = "flex"; } else { card.style.display = "none"; }';
+  html += '    }';
+  html += '  }';
+  html += '  checkEmptyState();'; 
+  html += '};';
+  
+  html += 'function checkEmptyState() {';
+  html += '  var cards = document.getElementsByClassName("product-card");';
+  html += '  var visibleCount = 0;';
+  html += '  for (var i = 0; i < cards.length; i++) {';
+  html += '    if (cards[i].style.display !== "none") visibleCount++;';
+  html += '  }';
+  html += '  var emptyBlock = document.getElementById("empty_state");';
+  html += '  if (visibleCount === 0) {';
+  html += '    emptyBlock.style.display = "flex";';
+  html += '    var searchVal = document.getElementById("search_input").value.trim();';
+  html += '    var hasStartItems = ' + (items.length > 0) + ';';
+  html += '    if (hasStartItems && searchVal !== "") {';
+  html += '      document.getElementById("empty_icon").innerText = "🔍";';
+  html += '      document.getElementById("empty_title").innerText = "Ничего не найдено";';
+  html += '      document.getElementById("empty_desc").innerText = "Попробуйте изменить запрос или проверить раскладку клавиатуры.";';
+  html += '    } else {';
+  html += '      document.getElementById("empty_icon").innerText = "🚛";';
+  html += '      document.getElementById("empty_title").innerText = "Всё разобрали!";';
+  html += '      document.getElementById("empty_desc").innerText = "Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!";';
+  html += '    }';
+  html += '  } else {';
+  html += '    emptyBlock.style.display = "none";';
+  html += '  }';
+  html += '};';
+  
+  html += 'function updateOrderButtons() {';
+  html += '  if (!isShopOpen) return;';
+  html += '  var totalSum = 0;';
+  html += '  var hasItems = false;';
+  html += '  var itemsData = ' + JSON.stringify(items) + ';';
+  html += '  for (var name in cart) {';
+  html += '    if (cart[name] > 0) {';
+  html += '      hasItems = true;';
+  html += '      var found = itemsData.find(function(item) { return item.name === name; });';
+  html += '      if (found) {';
+  html += '        if (name.toLowerCase().indexOf("лук") !== -1) {';
+  html += '          totalSum += (cart[name] / 100) * parseFloat(found.price);';
+  html += '        } else {';
+  html += '          totalSum += cart[name] * parseFloat(found.price);';
+  html += '        }';
+  html += '      }';
+  html += '    }';
+  html += '  }';
+  
+  html += '  var webBtn = document.getElementById("web_btn");';
+  html += '  var clearBtn = document.getElementById("clear_btn");';
+  
+  html += '  if (hasItems) {';
+  html += '    clearBtn.style.display = "block";'; 
+  html += '    if (totalSum < minOrderSum) {';
+  html += '      var diff = (minOrderSum - totalSum).toFixed(2);';
+  html += '      if (isTelegramWebApp) {';
+  html += '        tg.MainButton.setParams({ text: "⚠️ Добавьте ещё на " + diff + " BYN", color: "#aeaeae" });';
+  html += '        tg.MainButton.show();';
+  html += '      } else {';
+  html += '        webBtn.style.display = "block";';
+  html += '        webBtn.disabled = true;';
+  html += '        webBtn.innerText = "⚠️ Добавьте ещё на " + diff + " BYN";';
+  html += '      }';
+  html += '    } else {';
+  html += '      if (isTelegramWebApp) {';
+  html += '        tg.MainButton.setParams({ text: "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN", color: "#34c759" });';
+  html += '        tg.MainButton.show();';
+  html += '      } else {';
+  html += '        webBtn.style.display = "block";';
+  html += '        webBtn.disabled = false;';
+  html += '        webBtn.innerText = "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN";';
+  html += '      }';
+  html += '    }';
+  html += '  } else {';
+  html += '    clearBtn.style.display = "none";'; 
+  html += '    if (isTelegramWebApp) { tg.MainButton.hide(); }';
+  html += '    else { if (webBtn) webBtn.style.display = "none"; }';
+  html += '  }';
+  
+  html += '  if (!isTelegramWebApp && hasItems) { document.body.style.paddingBottom = "150px"; }';
+  html += '  else if (!isTelegramWebApp) { document.body.style.paddingBottom = "100px"; }';
+  html += '};'; 
+  
+  html += 'function submitOrder() {';
+  html += '  if (!isShopOpen) { alert("Магазин сейчас закрыт!"); return; }';
+  html += '  var hasItems = false; var totalSum = 0; var cartData = [];';
+  html += '  var itemsData = ' + JSON.stringify(items) + ';';
+  html += '  for (var key in cart) { ';
+  html += '    if (cart[key] > 0) { ';
+  html += '      hasItems = true; ';
+  html += '      var exportQty = (key.toLowerCase().indexOf("лук") !== -1) ? (cart[key] / 1000) : cart[key];';
+  html += '      cartData.push(key + ":" + exportQty); ';
+  html += '      var found = itemsData.find(function(i){ return i.name === key; });';
+  html += '      if (found) {';
+  html += '        if (key.toLowerCase().indexOf("лук") !== -1) {';
+  html += '          totalSum += (cart[key] / 100) * parseFloat(found.price);';
+  html += '        } else {';
+  html += '          totalSum += cart[key] * parseFloat(found.price);';
+  html += '        }';
+  html += '      }';
+  html += '    } ';
+  html += '  }';
+  
+  html += '  if (!hasItems) { alert("Корзина пуста!"); return; }';
+  html += '  if (totalSum < minOrderSum) { alert("Минимальная сумма заказа — " + minOrderSum + " BYN"); return; }';
+  
+  html += '  var phone = document.getElementById("user_phone").value.trim();';
+  html += '  if (!phone) { alert("Пожалуйста, введите телефон!"); return; }';
+  
+  html += '  var cleanPhone = phone.replace(/\\D/g, "");';
+  html += '  var phonePattern = /^(375|80)(25|29|33|44|17)\\d{7}$/;';
+  html += '  if (!phonePattern.test(cleanPhone)) {';
+  html += '    alert("Неверный формат телефона!\\nНомер должен содержать код страны и 9 цифр.");';
+  html += '    return;';
+  html += '  }';
+  
+  html += '  try { localStorage.setItem("saved_customer_phone", phone); } catch(e) {}';
+  
+  html += '  if (isTelegramWebApp) { tg.MainButton.showProgress(); } ';
+  html += '  else { document.getElementById("web_btn").classList.add("loading"); }';
+  
+  html += '  var redirectUrl = "' + getWebAppUrl() + '?action=order&phone=" + encodeURIComponent(cleanPhone) + "&cart=" + encodeURIComponent(cartData.join(","));';
+  html += '  window.location.href = redirectUrl;';
+  html += '};';
+  html += '</script></body></html>';
+
+  return HtmlService.createHtmlOutput(html).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+
+
+
+
+// ==========================================
+// 3. ПРИЕМ ЗАКАЗА И СВЕРКА ОСТАТКОВ
+// ==========================================
+function handleWebOrder(params) {
+  var name = decodeURIComponent(params.name || "Не указано"); 
+  var phone = decodeURIComponent(params.phone);
+  var rawCart = decodeURIComponent(params.cart).split(",");
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var productSheet = ss.getSheets()[0];
+  var orderSheet = ss.getSheetByName("Заказы");
+  var sysSheet = ss.getSheetByName("Системное");
+
+  if (!orderSheet || !sysSheet) {
+    return HtmlService.createHtmlOutput('<html><body><h2 style="color:red; text-align:center;">Ошибка: листы "Заказы" или "Системное" не найдены!</h2></body></html>');
+  }
+
+  var lastCheckRange = sysSheet.getRange("A2");
+  var lastCheckNumber = parseInt(lastCheckRange.getValue(), 10) || 1000;
+  var newCheckNumber = lastCheckNumber + 1;
+  lastCheckRange.setValue(newCheckNumber);
+
+  var productValues = productSheet.getRange(2, 1, Math.max(2, productSheet.getLastRow()) - 1, 3).getValues();
+  var totalSum = 0;
+  var compositionText = "";
+  var receiptLines = "";
+
+  rawCart.forEach(function(row) {
+    var parts = row.split(":");
+    var pName = parts[0];
+    var pQty = parseFloat(parts[1]) || 0; // Считываем количество как дробь (килограммы для лука, ед. для других)
+    var itemPrice = 0;
+
+    // 🌟 ОПРЕДЕЛЯЕМ ЕДИНИЦУ ИЗМЕРЕНИЯ ДЛЯ ЧЕКА И ТАБЛИЦЫ
+    var checkUnit = "кг"; // По умолчанию для всех весовых товаров
+    if (pName.toLowerCase().match(/(укроп|петрушка|кинза|чеснок|базилик|салат|шпинат|руккола|щавель|свекла|буряк|морковь|редис|розмарин|размарин|тимьян|мелисса|майоран|майран|мята)/)) {
+      checkUnit = "пуч";
+    } else if (pName.toLowerCase().match(/(капуста|брокколи)/)) {
+      checkUnit = "шт";
+    }
+
+    // Если товар продается пучками, в чеке пишем "шт", как вы просили (шт x цена)
+    var displayUnit = checkUnit === "пуч" ? "шт" : "кг";
+
+    for (var i = 0; i < productValues.length; i++) {
+      var tableName = productValues[i][0] ? productValues[i][0].toString().trim().replace(/"/g, '').replace(/'/g, "") : "";
+      if (tableName.toLowerCase() === pName.toLowerCase()) {
+        var priceStr = productValues[i][2].toString();
+        var cleanPrice = priceStr.indexOf("-") !== -1 ? priceStr.split("-")[0] : priceStr;
+        cleanPrice = cleanPrice.replace(/\s/g, '').replace(',', '.');
+        itemPrice = parseFloat(cleanPrice) || 0;
+
+        var currentStock = parseFloat(productSheet.getRange(i + 2, 2).getValue().toString().replace(',', '.')) || 0;
+        
+        // 🌟 ИСПРАВЛЕНИЕ: Считаем разницу и жестко фиксируем 3 знака после запятой (округляем до грамма)
+        var newStock = parseFloat((currentStock - pQty).toFixed(3));
+        
+        // Сохраняем в таблицу уже чистое, ровное число без хвостов из девяток
+        productSheet.getRange(i + 2, 2).setValue(Math.max(0, newStock));
       }
-      checkEmptyState(); 
-      updateOrderButtons();
+    }
+    
+    // 🌟 РАСЧЕТ СТОИМОСТИ С УЧЕТОМ ЛОГИКИ ДЛЯ ЛУКА
+    var itemCost = 0;
+    var qtyString = "";
+
+    if (pName.toLowerCase().indexOf("лук") !== -1) {
+      var grams = pQty * 1000; // Переводим 0.5 кг обратно в 500 грамм
+      itemCost = (grams / 100) * itemPrice; // (500 / 100) * 3 BYN = 15 BYN
+      qtyString = grams + " г"; // В чек пишем просто "500 г" вместо "0.5 кг"
+    } else {
+      itemCost = pQty * itemPrice;
+      qtyString = (displayUnit === "кг" && pQty < 1) ? (pQty * 1000) + " г" : pQty + " " + displayUnit;
+    }
+
+    totalSum += itemCost;
+    
+    // Строка состава для ячейки в Google Таблице
+    compositionText += pName + " (" + qtyString + "); ";
+    
+    // 🌟 Выстраиваем столбики в моноширинном чеке Telegram
+    receiptLines += pName + "\n";
+    // Для лука подменяем отображение цены, чтобы было написано "за 100 г"
+    var priceText = (pName.toLowerCase().indexOf("лук") !== -1) ? itemPrice.toFixed(2) + " за 100 г" : itemPrice.toFixed(2);
+    receiptLines += "  " + qtyString + " x " + priceText + " = " + itemCost.toFixed(2) + " BYN\n";
+  });
+
+  var formattedDate = Utilities.formatDate(new Date(), "Europe/Minsk", "dd.MM.yyyy HH:mm");
+  
+  // Записываем имя покупателя в третью колонку
+  orderSheet.appendRow(["#" + newCheckNumber, formattedDate, name, phone, compositionText, totalSum.toFixed(2), "Новый"]);
+
+  // 🔥 ОТПРАВЛЯЕМ КРАСИВЫЙ МОНОШИРИННЫЙ ЧЕК В ТЕЛЕГРАМ АДМИНУ
+  if (YOUR_PERSONAL_CHAT_ID) {
+    var txt = "🔔 *НОВЫЙ ЗАКАЗ С ВИТРИНЫ\\!* 🔔\n\n";
+    txt += "```text\n"; 
+    txt += "🧾 ЧЕК ЗАКАЗА: #" + newCheckNumber + "\n";
+    txt += "📅 " + formattedDate + "\n";
+    txt += "👤 Имя: " + name + "\n";
+    txt += "📱 Тел: " + phone + "\n";
+    txt += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    txt += receiptLines;
+    txt += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    txt += "💵 ИТОГО К ОПЛАТЕ: " + totalSum.toFixed(2) + " BYN\n";
+    txt += "```\n";
+    txt += "📞 _Нажмите на номер телефона выше, чтобы быстро позвонить клиенту\\._";
+
+    UrlFetchApp.fetch(getSafeTelegramUrl("sendMessage"), {
+      "method": "post", "contentType": "application/json", "payload": JSON.stringify({ "chat_id": YOUR_PERSONAL_CHAT_ID.toString(), "text": txt, "parse_mode": "MarkdownV2" }), "muteHttpExceptions": true
     });
+  }
 
-    // 2. Генерация витрины товаров
-    function renderCatalog() {
-      var catalog = document.getElementById('catalog');
-      var footer = document.getElementById('footer_form');
-      
-      document.getElementById('count_all').innerText = shopData.counts.all;
-      document.getElementById('count_veggies').innerText = shopData.counts.veggies;
-      document.getElementById('count_greens').innerText = shopData.counts.greens;
-      
-      if (shopData.items.length === 0) {
-        document.getElementById('empty_state').style.display = 'flex';
-      }
-
-      shopData.items.forEach(function(item, idx) {
-        var lowerName = item.name.toLowerCase();
-        var unitLabel = "кг"; 
-        var currentStep = item.step;
-        var maxCount = item.count; 
-
-        if (lowerName.indexOf("лук") !== -1) {
-          unitLabel = "г";
-          currentStep = 100; 
-          maxCount = Math.floor(item.count * 1000); 
-        } else if (item.category === "greens") {
-          unitLabel = "пуч"; 
-          if (lowerName.indexOf("огурец") !== -1 || lowerName.indexOf("огурцы") !== -1) {
-            unitLabel = "кг";
-          }
-        } else {
-          if (lowerName.indexOf("морковь") !== -1 || lowerName.indexOf("редис") !== -1 || lowerName.indexOf("свекла") !== -1 || lowerName.indexOf("свёкла") !== -1) {
-            unitLabel = "пуч";
-          } else if (lowerName.indexOf("чеснок") !== -1) {
-            unitLabel = "шт";
-          }
-        }
-
-        var isAvailable = (maxCount > 0);
-        var cardClass = "product-card";
-        if (!isAvailable) cardClass += " out-of-stock";
-        if (!shopData.isShopOpen) cardClass += " shop-closed";
-
-        var ostText = isAvailable ? ((lowerName.indexOf("лук") !== -1) ? item.count + " кг" : item.count + " " + unitLabel) : "Нет в наличии";
-        var stockClass = isAvailable ? "product-stock" : "product-stock out";
-        var priceSubText = (lowerName.indexOf("лук") !== -1) ? " за 100 г" : " за " + unitLabel;
-
-        var disabledAttr = (!isAvailable || !shopData.isShopOpen) ? "disabled" : "";
-
-        var cardHtml = '<div class="' + cardClass + '" data-category="' + item.category + '" data-name="' + lowerName + '">' +
-          '<div class="product-info">' +
-            '<div class="product-name">' + item.name + '</div>' +
-            '<div class="product-price">' + item.price + ' <span style="font-size:12px; font-weight:normal; color:#8e8e93;">BYN' + priceSubText + '</span>' +
-            '<div class="' + stockClass + '">Ост: ' + ostText + '</div></div>' +
-          '</div>' +
-          '<div class="counter">' +
-            '<button class="minus" ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', -' + currentStep + ', \'' + unitLabel + '\')">-</button>' +
-            '<div class="count-val" id="qty_' + idx + '">0</div>' + // Вернули цифру 0
-            '<button ' + disabledAttr + ' onclick="changeQty(\'' + idx + '\', \'' + item.name.replace(/'/g, "\\'") + '\', ' + maxCount + ', ' + currentStep + ', \'' + unitLabel + '\')">+</button>' + // Вернули ПЛЮС
-          '</div></div>';
-
-        catalog.insertAdjacentHTML('beforeend', cardHtml);
-      });
-
-      if (shopData.isShopOpen) {
-        footer.innerHTML = '  <input type="tel" id="user_phone" placeholder="📱 Ваш номер: 29 000-00-00" oninput="maskBelarusPhone(this)" required>' +
-                           '  <button id="web_btn" class="web-submit-btn" onclick="submitOrder()">🛒 ОФОРМИТЬ ЗАКАЗ</button>';
-      } else {
-        var startHourText = shopData.startHour < 9 ? "0" + shopData.startHour : shopData.startHour;
-        footer.innerHTML = '  <div class="closed-alert">🔒 Прием заказов закрыт до ' + startHourText + ':00</div>';
-      }
-    }
-    // 3. Управление маской и кнопками категорий
-    function maskBelarusPhone(input) {
-      var cursor = input.selectionStart;
-      var value = input.value;
-      var oldLen = value.length;
-      if (value.length < 5) {
-        var clean = value.replace(/[^0-9+]/g, "");
-        if (clean === "+" || clean === "+3" || clean === "+37" || clean === "+375") { input.value = ""; }
-        return;
-      }
-      var numbers = value.replace(/\D/g, "");
-      if (numbers.indexOf("80") === 0) { numbers = "375" + numbers.substring(2); }
-      if (numbers.length === 0) { input.value = ""; return; }
-      if (numbers.substring(0, 3) === "375") { numbers = numbers.substring(3); }
-      var formatted = "+375 ";
-      if (numbers.length > 0) { formatted += "(" + numbers.substring(0, 2); }
-      if (numbers.length > 2) { formatted += ") " + numbers.substring(2, 5); }
-      if (numbers.length > 5) { formatted += "-" + numbers.substring(5, 7); }
-      if (numbers.length > 7) { formatted += "-" + numbers.substring(7, 9); }
-      input.value = formatted;
-      var newLen = formatted.length;
-      var delta = newLen - oldLen;
-      var newCursor = cursor + delta;
-      if (newCursor < 0) newCursor = 0;
-      if (newCursor > newLen) newCursor = newLen;
-      input.setSelectionRange(newCursor, newCursor);
-    }
-
-    function changeQty(idx, name, max, change, unit) {
-      if (!isShopOpen) return;
-      if (!cart[name]) { cart[name] = 0; }
-      var next = parseFloat((cart[name] + change).toFixed(3)); 
-      if (next < 0) next = 0;
-      if (next > max) { 
-        alert("Извините, осталось только " + max + " " + unit + " товара!"); return; 
-      }
-      cart[name] = next;
-      var displayVal = next === 0 ? "0" : next + " " + unit;
-      document.getElementById("qty_" + idx).innerText = displayVal;
-      updateOrderButtons();
-    }
-
-    function clearCart() {
-      cart = {};
-      var vals = document.getElementsByClassName("count-val");
-      for (var i = 0; i < vals.length; i++) { vals[i].innerText = "0"; }
-      updateOrderButtons();
-    }
-    function changeCategory(catId) {
-      currentCategory = catId;
-      var buttons = document.getElementsByClassName("cat-btn");
-      for (var i=0; i<buttons.length; i++) { buttons[i].classList.remove("active"); }
-      document.getElementById("cat_" + catId).classList.add("active");
-      filterCatalog(); 
-    }
-
-    function filterCatalog() {
-      var searchText = document.getElementById("search_input").value.toLowerCase().trim();
-      var cards = document.getElementsByClassName("product-card");
-      for (var i = 0; i < cards.length; i++) {
-        var card = cards[i];
-        var cardName = card.getAttribute("data-name");
-        var cardCategory = card.getAttribute("data-category");
-        if (cardName && cardCategory) {
-          var matchSearch = cardName.indexOf(searchText) !== -1;
-          var matchCategory = (currentCategory === "all") || (cardCategory === currentCategory);
-          if (matchSearch && matchCategory) { card.style.display = "flex"; } else { card.style.display = "none"; }
-        }
-      }
-      checkEmptyState(); 
-    }
-
-    function checkEmptyState() {
-      var cards = document.getElementsByClassName("product-card");
-      var visibleCount = 0;
-      for (var i = 0; i < cards.length; i++) {
-        if (cards[i].style.display !== "none") visibleCount++;
-      }
-      var emptyBlock = document.getElementById("empty_state");
-      if (visibleCount === 0) {
-        emptyBlock.style.display = "flex";
-        var searchVal = document.getElementById("search_input").value.trim();
-        if (totalItemsOnStart > 0 && searchVal !== "") {
-          document.getElementById("empty_icon").innerText = "🔍";
-          document.getElementById("empty_title").innerText = "Ничего не найдено";
-          document.getElementById("empty_desc").innerText = "Попробуйте изменить запрос или проверить раскладку клавиатуры.";
-        } else {
-          document.getElementById("empty_icon").innerText = "🚛";
-          document.getElementById("empty_title").innerText = "Всё разобрали!";
-          document.getElementById("empty_desc").innerText = "Свежий завоз овощей и зелени уже готовится. Загляните к нам чуть позже!";
-        }
-      } else {
-        emptyBlock.style.display = "none";
-      }
-    }
-    // 4. Логика подсчета стоимости корзины
-    function updateOrderButtons() {
-      if (!isShopOpen) return;
-      var totalSum = 0;
-      var hasItems = false;
-      var itemsData = shopData.items;
-      for (var name in cart) {
-        if (cart[name] > 0) {
-          hasItems = true;
-          var found = itemsData.find(function(item) { return item.name === name; });
-          if (found) {
-            if (name.toLowerCase().indexOf("лук") !== -1) {
-              totalSum += (cart[name] / 100) * parseFloat(found.price);
-            } else {
-              totalSum += cart[name] * parseFloat(found.price);
-            }
-          }
-        }
-      }
-      
-      var webBtn = document.getElementById("web_btn");
-      var clearBtn = document.getElementById("clear_btn");
-      
-      if (hasItems) {
-        clearBtn.style.display = "block"; 
-        if (totalSum < minOrderSum) {
-          var diff = (minOrderSum - totalSum).toFixed(2);
-          if (isTelegramWebApp) {
-            tg.MainButton.setParams({ text: "⚠️ Добавьте ещё на " + diff + " BYN", color: "#aeaeae" });
-            tg.MainButton.show();
-          } else {
-            if (webBtn) {
-              webBtn.style.display = "block";
-              webBtn.disabled = true;
-              webBtn.innerText = "⚠️ Добавьте ещё на " + diff + " BYN";
-            }
-          }
-        } else {
-          if (isTelegramWebApp) {
-            tg.MainButton.setParams({ text: "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN", color: "#34c759" });
-            tg.MainButton.show();
-          } else {
-            if (webBtn) {
-              webBtn.style.display = "block";
-              webBtn.disabled = false;
-              webBtn.innerText = "🛒 ОФОРМИТЬ ЗАКАЗ — " + totalSum.toFixed(2) + " BYN";
-            }
-          }
-        }
-      } else {
-        clearBtn.style.display = "none"; 
-        if (isTelegramWebApp) { tg.MainButton.hide(); }
-        else { if (webBtn) webBtn.style.display = "none"; }
-      }
-      
-      if (!isTelegramWebApp && hasItems) { document.body.style.paddingBottom = "150px"; }
-      else if (!isTelegramWebApp) { document.body.style.paddingBottom = "100px"; }
-    } 
+  // Обновляем витрину в канале, так как остатки изменились
+  try { updateChannelPost(); } catch(e) { try { updateTelegramPost(); } catch(err){} }
   
-    // 5. Отправка сформированного заказа
-    function submitOrder() {
-      if (!isShopOpen) { alert("Магазин сейчас закрыт!"); return; }
-      var hasItems = false; var totalSum = 0; var cartData = [];
-      var itemsData = shopData.items;
-      for (var key in cart) { 
-        if (cart[key] > 0) { 
-          hasItems = true; 
-          var exportQty = (key.toLowerCase().indexOf("лук") !== -1) ? (cart[key] / 1000) : cart[key];
-          cartData.push(key + ":" + exportQty); 
-          var found = itemsData.find(function(i){ return i.name === key; });
-          if (found) {
-            if (key.toLowerCase().indexOf("лук") !== -1) {
-              totalSum += (cart[key] / 100) * parseFloat(found.price);
-            } else {
-              totalSum += cart[key] * parseFloat(found.price);
-            }
+  // 🔥 ЧИСТЫЙ HTML ЭКРАН С СТАБИЛЬНОЙ КНОПКОЙ (БЕЗ ТАЙМЕРОВ И ОШИБОК)
+  var catalogUrl = getWebAppUrl(); 
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Заказ оформлен</title>';
+  html += '<style>';
+  html += '  body { font-family: -apple-system, sans-serif; text-align: center; padding: 40px 20px; background: #f4f4f5; color: #333; margin: 0; }';
+  html += '  .card { background: #ffffff; padding: 30px 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); max-width: 400px; margin: 0 auto; box-sizing: border-box; }';
+  html += '  h2 { color: #34c759; margin-top: 0; font-size: 22px; }';
+  html += '  .sum { font-size: 26px; font-weight: bold; color: #2481cc; margin: 18px 0; }';
+  html += '  .info { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 25px; }';
+  html += '  .back-btn { display: inline-block; background: #2481cc; color: #fff; border: none; border-radius: 10px; padding: 14px 28px; font-weight: bold; font-size: 16px; cursor: pointer; text-decoration: none; }';
+  html += '</style></head><body>';
+  html += '<div class="card">';
+  html += '  <h2>🎉 Заказ успешно принят!</h2>';
+  html += '  <p style="margin: 5px 0;">Номер вашего чека: <b>#' + newCheckNumber + '</b></p>';
+  html += '  <div class="sum">' + totalSum.toFixed(2) + ' BYN.</div>';
+  html += '  <p class="info">Продавец уже собирает заказ<br>и свяжется с вами по номеру:<br><b>' + phone + '</b></p>';
+  html += '  <a class="back-btn" target="_top" href="' + catalogUrl + '">🛒 Вернуться в каталог</a>';
+  html += '</div></body></html>';
+  
+  var finalOutput = HtmlService.createHtmlOutput(html);
+  return finalOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// ==========================================
+// 4. ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ В TG
+// ==========================================
+function sendTelegramMessage(chatId, text) {
+  var url = getSafeTelegramUrl("sendMessage");
+  var payload = { "chat_id": chatId.toString(), "text": text, "parse_mode": "HTML" };
+  UrlFetchApp.fetch(url, { "method": "post", "contentType": "application/json", "payload": JSON.stringify(payload), "muteHttpExceptions": true });
+}
+
+
+// ==========================================
+// 5. ФОРМИРОВАНИЕ И ОБНОВЛЕНИЕ ПОСТА В КАНАЛЕ
+// ==========================================
+function updateTelegramPost() {
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  var sheet = sheets[0]; 
+  var rowNumber = sheet.getRange("F4").getValue().toString().trim();
+  var seatNumber = sheet.getRange("F2").getValue().toString().trim();
+  var specialProductTarget = sheet.getRange("G2").getValue().toString().trim().toLowerCase();
+  
+  if (rowNumber === "") rowNumber = "6";
+  if (seatNumber === "") seatNumber = "X";
+  
+  var escapedRow = rowNumber.replace(/([_*\[\]()~`>#+-=|{}.!])/g, '\\$1');
+  var escapedSeat = seatNumber.replace(/([_*\[\]()~`>#+-=|{}.!])/g, '\\$1');
+
+  var now = new Date();
+  var minskTimeStr = Utilities.formatDate(now, "Europe/Minsk", "u-HH-mm"); 
+  var timeParts = minskTimeStr.split("-");
+  var dayOfWeek = parseInt(timeParts[0], 10); 
+  var currentHour = parseInt(timeParts[1], 10);
+  
+  var isMarketOpen = true;
+  var closedReason = "";
+  var moodGreeting = ""; 
+
+  if (dayOfWeek === 1) {
+    isMarketOpen = false;
+    closedReason = "🗓️ *Сегодня ПОНЕДЕЛЬНИК — на рынке выходной\\!* \nЗаказы принимаются через магазин в режиме предзаказа на завтра\\.";
+  } 
+  else if (currentHour < 7 || currentHour >= 19) {
+    isMarketOpen = false;
+    closedReason = "🏮 *Рынок сейчас ЗАКРЫТ \\(работает с 08:00 до 19:00\\)* \nВы можете оставить предзаказ через витрину, и мы соберем товар на утро\\!";
+  }
+  
+  if (isMarketOpen) {
+    if (currentHour >= 9 && currentHour < 12) moodGreeting = "☀️ _*Доброе утро\\! Свежий завоз зелени и овощей прямо с грядки уже на прилавке\\.*_";
+    else if (currentHour >= 12 && currentHour < 16) moodGreeting = "✨ _*Самое время для витаминов\\! Все овощи и ароматные травы в наличии\\.*_";
+    else moodGreeting = "🌆 _*Вечерняя распродажа остатков\\! Успейте забрать самые сочные позиции к ужину\\.*_";
+  }
+
+  var text = "";
+  var buttonText = "🛍️ СДЕЛАТЬ ЗАКАЗ (WEB APP)  🛒"; 
+  
+  var headerText = "✨ _*АКТУАЛЬНОЕ НАЛИЧИЕ НА ПРИЛАВКЕ*_ ✨\n";
+  headerText += "🗺️ _*г\\. Минск, Комаровский рынок, Сезонный рынок, ряд " + escapedRow + ", место " + escapedSeat + "*_ \n";
+  headerText += "━━━━━━━━━━━━━━━━━━━━\n\n".replace(/-/g, '\\-');
+
+  if (!isMarketOpen) {
+    text = headerText + closedReason + "\n\n━━━━━━━━━━━━━━━━━━━━\n".replace(/-/g, '\\-');
+    text += "🕒 _Обновлено\\: " + Utilities.formatDate(now, "Europe/Minsk", "HH:mm").replace(/:/g, '\\:') + "_";
+    buttonText = "📥  ОСТАВИТЬ ПРЕДЗАКАЗ (WEB APP)  🛒"; 
+  } 
+  else {
+    text = headerText + moodGreeting + "\n\n";
+    var lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      var range = sheet.getRange(2, 1, lastRow - 1, 3);
+      var values = range.getValues();
+      var veggiesList = ""; var greensList = ""; var specialProductBlock = ""; var totalItemsCount = 0;
+      var emojis = { "картофель": "🥔", "картошка": "🥔", "огурцы": "🥒", "огурец": "🥒", "помидоры": "🍅", "томаты": "🍅", "свекла": "🫜", "буряк": "🫜", "морковь": "🥕", "морковка": "🥕", "кабачки": "🍆", "кабачок": "🍆", "чеснок": "🧄", "лук": "🧅", "укроп": "🌿", "петрушка": "🌿", "кинза": "🌿", "базилик": "🌿", "салат": "🥬", "шпинат": "🥬", "руккола": "🌿", "щавель": "🥬", "капуста": "🥬", "брокколи": "🥦", "редис": "🫜", "перец": "🫜", "розмарин": "🌿", "размарин": "🌿", "тимьян": "🌿", "мелисса": "🌿", "майоран": "🌱", "майран": "🌱", "мята": "🌿" };
+      
+      for (var i = 0; i < values.length; i++) {
+        var name = values[i][0] ? values[i][0].toString().trim() : "";  
+        var count = values[i][1] !== "" ? parseFloat(values[i][1].toString().replace(',', '.')) : 0; 
+        var rawPrice = values[i][2] !== undefined && values[i][2] !== null ? values[i][2].toString().trim() : ""; 
+        if (!name || count <= 0) continue;
+        totalItemsCount++;
+        
+        var icon = "🔹"; for (var key in emojis) { if (name.toLowerCase().indexOf(key) !== -1) { icon = emojis[key]; break; } }
+        var statusText = (count > 0 && count <= 4) ? " ⚠️" : "";
+        var unit = "кг";
+        if (name.toLowerCase().match(/(укроп|петрушка|кинза|базилик|салат|шпинат|руккола|щавель|свекла|буряк|морковь|редис|розмарин|размарин|тимьян|мелисса|майоран|майран|мята)/)) unit = "пуч";
+        else if (name.toLowerCase().match(/(чеснок)/)) unit = "шт";
+        
+        var currencyText = name.toLowerCase().indexOf("лук") !== -1 ? " BYN/100 гр" : " BYN";
+        var weightAndPriceText = " — _*" + count.toString().replace(/\./g, '\\.') + " " + unit + "*_";
+        
+        if (rawPrice !== "" && rawPrice !== "0") {
+          var formattedPrice = rawPrice;
+          if (rawPrice.indexOf("-") !== -1) {
+            var parts = rawPrice.split("-");
+            var p1 = parseFloat(parts[0].replace(/\s/g, '').replace(',', '.'));
+            var p2 = parseFloat(parts[1].replace(/\s/g, '').replace(',', '.'));
+            if (!isNaN(p1) && !isNaN(p2)) formattedPrice = p1.toFixed(2) + "-" + p2.toFixed(2);
+          } else {
+            var singlePrice = parseFloat(rawPrice.replace(/\s/g, '').replace(',', '.'));
+            if (!isNaN(singlePrice)) formattedPrice = singlePrice.toFixed(2);
           }
-        } 
+          weightAndPriceText += " `/` __" + formattedPrice.replace(/\./g, '\\.').replace(/-/g, '\\-') + currencyText.replace(/\./g, '\\.').replace(/\//g, '\\/') + "__";
+        }
+        
+        var itemString = icon + " " + name.replace(/([_*\[\]()~`>#+-=|{}.!])/g, '\\$1') + weightAndPriceText + statusText + "\n";
+        
+        if (specialProductTarget !== "" && name.toLowerCase().indexOf(specialProductTarget) !== -1) {
+          specialProductBlock = "⭐️ *ТОВАР ДНЯ:* " + icon + " _*" + name.replace(/([_*\[\]()~`>#+-=|{}.!])/g, '\\$1') + "*_ " + weightAndPriceText + " ⭐️\n━━━━━━━━━━━━━━━━━━━━\n".replace(/-/g, '\\-');
+          continue;
+        }
+        if (name.toLowerCase().match(/(укроп|петрушка|кинза|базилик|салат|шпинат|руккола|лук|щавель|розмарин|размарин|тимьян|мелисса|майоран|майран|мята)/)) greensList += itemString;
+        else veggiesList += itemString;
       }
-      
-      if (!hasItems) { alert("Корзина пуста!"); return; }
-      if (totalSum < minOrderSum) { alert("Минимальная сумма заказа — " + minOrderSum + " BYN"); return; }
-      
-      var phone = document.getElementById("user_phone").value.trim();
-      if (!phone) { alert("Пожалуйста, введите телефон!"); return; }
-
-      var cleanPhone = phone.replace(/\D/g, "");
-      var phonePattern = /^(375|80)(25|29|33|44|17)\d{7}$/;
-      if (!phonePattern.test(cleanPhone)) {
-        alert("Неверный формат телефона!\nНомер должен содержать код страны и 9 цифр.");
-        return;
-      }
-      
-      try { localStorage.setItem("saved_customer_phone", phone); } catch(e) {}
-      
-      if (isTelegramWebApp) { tg.MainButton.showProgress(); } 
-      else { document.getElementById("web_btn").classList.add("loading"); }
-      
-      var tgId = "";
-      var tgName = "";
-      
-      // Считываем данные пользователя, если открыто внутри Telegram WebApp
-      if (isTelegramWebApp && tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        tgId = tg.initDataUnsafe.user.id || "";
-        tgName = tg.initDataUnsafe.user.first_name || "";
-      }
-      
-      var redirectUrl = shopData.webAppUrl + "?action=order" +
-                        "&phone=" + encodeURIComponent(cleanPhone) + 
-                        "&cart=" + encodeURIComponent(cartData.join(",")) +
-                        "&tg_id=" + encodeURIComponent(tgId) +
-                        "&name=" + encodeURIComponent(tgName);
-                        
-      window.location.href = redirectUrl;
+      if (totalItemsCount > 0) text += "🔥 _Всего на прилавке\\: " + totalItemsCount + " поз\\._\n\n";
+      if (specialProductBlock !== "") text += specialProductBlock;
+      if (veggiesList !== "") text += "✨ _*СВЕЖИЕ ОВОЩИ:*_\n" + veggiesList + "\n";
+      if (greensList !== "") text += "✨ _*АРОМАТНАЯ ЗЕЛЕНЬ:*_\n" + greensList + "\n";
     }
+    text += "━━━━━━━━━━━━━━━━━━━━\n".replace(/-/g, '\\-') + "🕒 _Последнее обновление остатков\\: " + Utilities.formatDate(now, "Europe/Minsk", "HH:mm").replace(/:/g, '\\:') + "_";
+  }
 
-  </script>
-</body>
-</html>
+  var inlineKeyboard = {
+    "inline_keyboard": [[
+      { "text": buttonText, "url": "t.me/Veg_minsk_bot/market" } // Укажите юзернейм бота
+    ]]
+  };
+
+  UrlFetchApp.fetch(getSafeTelegramUrl("editMessageText"), {
+    "method": "post", "contentType": "application/json", "payload": JSON.stringify({ "chat_id": CHANNEL_CHAT_ID, "message_id": POST_MESSAGE_ID, "text": text, "parse_mode": "MarkdownV2", "reply_markup": JSON.stringify(inlineKeyboard) }), "muteHttpExceptions": true
+  });
+}
+
+// ==========================================
+// 6. МАСТЕР ПРИНУДИТЕЛЬНОЙ АКТИВАЦИИ
+// ==========================================
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu('🤖 ЗАПУСК ИНТЕРНЕТ-МАГАЗИНА')
+    .addItem('🔗 ВКЛЮЧИТЬ КОРЗИНУ И ЧЕКИ', 'masterWebhookSetup')
+    .addToUi();
+}
+
+
+function masterWebhookSetup() {
+  var ui = SpreadsheetApp.getUi();
+  var finalUrl = getSafeTelegramUrl("setWebhook") + "?url=" + encodeURIComponent(getWebAppUrl());
+  try {
+    var response = UrlFetchApp.fetch(finalUrl, {"muteHttpExceptions": true});
+    ui.alert("📢 СТАТУС ПРИВЯЗКИ", "Поздравляем! Google и Telegram связались!\n\nОтвет серверов:\n" + response.getContentText(), ui.ButtonSet.OK);
+  } catch (error) {
+    ui.alert("❌ КРИТИЧЕСКАЯ ОШИБКА", "Сбой сети: " + error.toString(), ui.ButtonSet.OK);
+  }
+}
+
+
+
+// Функция, которая будет запускаться при любом изменении таблицы
+function autoUpdateOnEdit(e) {
+  var sheet = e.source.getActiveSheet();
+  
+  // Укажите точное имя вашего листа с товарами вместо "Лист1", если оно другое
+  if (sheet.getName() === "Лист1") { 
+    try {
+      updateChannelPost();
+    } catch(err) {
+      try {
+        updateTelegramPost();
+      } catch(e) {
+        Logger.log("Не удалось обновить пост: " + e.toString());
+      }
+    }
+  }
+}
