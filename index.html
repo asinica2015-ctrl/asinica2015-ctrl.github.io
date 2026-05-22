@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Магазин Овощей и Зелени</title>
+    <!-- Подключаем стили и скрипт Telegram -->
+    <script src="https://telegram.org"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            margin: 0;
+            padding: 15px;
+        }
+        h1 { text-align: center; color: #2ecc71; font-size: 24px; }
+        .catalog {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .product-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            background: var(--tg-theme-secondary-bg-color, #f9f9f9);
+        }
+        .product-card img { width: 80px; height: 80px; object-fit: cover; }
+        .product-title { font-weight: bold; margin: 8px 0; }
+        .product-price { color: #27ae60; font-weight: bold; margin-bottom: 10px; }
+        .btn {
+            background-color: var(--tg-theme-button-color, #2ecc71);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🥬 Свежие Овощи и Зелень</h1>
+    
+    <div class="catalog">
+        <!-- Карточка 1 -->
+        <div class="product-card">
+            <img src="https://icons8.com" alt="Томаты">
+            <div class="product-title">Томаты Черри</div>
+            <div class="product-price">250 ₽ / кг</div>
+            <button class="btn" onclick="addToCart('Томаты Черри', 250)">В корзину</button>
+        </div>
+        <!-- Карточка 2 -->
+        <div class="product-card">
+            <img src="https://icons8.com" alt="Огурцы">
+            <div class="product-title">Огурцы гладкие</div>
+            <div class="product-price">180 ₽ / кг</div>
+            <button class="btn" onclick="addToCart('Огурцы гладкие', 180)">В корзину</button>
+        </div>
+        <!-- Карточка 3 -->
+        <div class="product-card">
+            <img src="https://icons8.com" alt="Шпинат">
+            <div class="product-title">Шпинат свежий</div>
+            <div class="product-price">120 ₽ / уп</div>
+            <button class="btn" onclick="addToCart('Шпинат свежий', 120)">В корзину</button>
+        </div>
+        <!-- Карточка 4 -->
+        <div class="product-card">
+            <img src="https://icons8.com" alt="Авокадо">
+            <div class="product-title">Авокадо Хасс</div>
+            <div class="product-price">150 ₽ / шт</div>
+            <button class="btn" onclick="addToCart('Авокадо Хасс', 150)">В корзину</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Разворачиваем приложение на весь экран
+
+        let cart = [];
+
+        function addToCart(name, price) {
+            cart.push({ name, price });
+            updateMainButton();
+        }
+
+        function updateMainButton() {
+            if (cart.length > 0) {
+                const total = cart.reduce((sum, item) => sum + item.price, 0);
+                tg.MainButton.text = `Оформить заказ: ${total} ₽`;
+                tg.MainButton.show();
+            } else {
+                tg.MainButton.hide();
+            }
+        }
+
+        // Обработка нажатия на главную кнопку Telegram
+        tg.onEvent('mainButtonClicked', function() {
+            // Отправляем данные о заказе обратно боту
+            tg.sendData(JSON.stringify(cart));
+        });
+    </script>
+</body>
+</html>
